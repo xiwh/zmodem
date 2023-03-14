@@ -2,12 +2,9 @@ package zmodem
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
-	"fmt"
 	"github.com/xiwh/zmodem/collectionutil"
 	"io"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -42,6 +39,7 @@ type ZModem struct {
 	lastDownloadFile *ZModemFile
 	lastUploadFile   *ZModemFile
 	running          *atomic.Bool
+	sendFileEOF      bool
 }
 
 func New(consumer ZModemConsumer) *ZModem {
@@ -63,8 +61,8 @@ func (t *ZModem) sendFrame(f frame) error {
 	if err != nil {
 		return err
 	}
-	log("发送帧")
-	log(hex.Dump(result))
+	//log("发送帧")
+	//log(hex.Dump(result))
 	//log(f.ToString() + "\n")
 
 	_, err = t.consumer.Writer.Write(result)
@@ -76,8 +74,8 @@ func (t *ZModem) sendSubPacket(packet subPacket, frameEncoding FrameEncoding, ap
 	if err != nil {
 		return err
 	}
-	log("发送子包")
-	log(hex.Dump(result))
+	//log("发送子包")
+	//log(hex.Dump(result))
 	_, err = t.consumer.Writer.Write(result)
 	return err
 }
@@ -97,6 +95,7 @@ func (t *ZModem) readFrame() (f frame, err error) {
 	}
 	//将处理完的数据还回buf，等待下次处理
 	t.unreadBuf = t.unreadBuf[n:]
+
 	return f, err
 }
 
@@ -126,6 +125,7 @@ func (t *ZModem) readSubPacket(frameEncoding FrameEncoding) (s subPacket, err er
 			t.lock.Unlock()
 			continue
 		}
+
 		//将处理完的数据还回buf，等待下次处理
 		t.unreadBuf = t.unreadBuf[n:]
 		t.lock.Unlock()
@@ -135,8 +135,6 @@ func (t *ZModem) readSubPacket(frameEncoding FrameEncoding) (s subPacket, err er
 }
 
 func (t *ZModem) Write(data []byte) (int, error) {
-	log(fmt.Sprintf("收到数据,长度:%d", len(data)))
-	log(hex.Dump(data))
 
 	t.lock.Lock()
 
@@ -236,6 +234,7 @@ func (t *ZModem) release() {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	if t.status != StatusIdle {
+		t.sendFileEOF = false
 		if t.lastDownloadFile != nil {
 			if t.lastDownloadFile.buf != nil {
 				_ = t.lastDownloadFile.buf.Close()
@@ -254,12 +253,12 @@ func (t *ZModem) release() {
 	}
 }
 
-var logFile, _ = os.OpenFile("test.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
-
-func log(str string) {
-	_, err := logFile.WriteString(str + "\n")
-	if err != nil {
-		println(err)
-	}
-	//println(str)
-}
+//var logFile, _ = os.OpenFile("test.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+//
+//func log(str string) {
+//	_, err := logFile.WriteString(str + "\n")
+//	if err != nil {
+//		println(err)
+//	}
+//	//println(str)
+//}

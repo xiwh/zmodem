@@ -1,9 +1,7 @@
 package zmodem
 
 import (
-	"fmt"
 	"github.com/xiwh/zmodem/byteutil"
-	"time"
 )
 
 func (t *ZModem) handleReceive() {
@@ -18,8 +16,8 @@ func (t *ZModem) handleReceive() {
 			//解析错误属于正常现象，因为可能一个大数据包被分成两段发过来了，需要等待第二段到位才能够正常解析
 			return
 		}
-		log("解析到接收帧")
-		log(dataFrame.ToString() + "\n")
+		//log("解析到接收帧")
+		//log(dataFrame.ToString() + "\n")
 		switch dataFrame.frameType {
 		case ZRQINIT:
 			err = t.sendFrame(newHexFrame(ZRINIT, DEFAULT_HEADER_DATA))
@@ -46,6 +44,9 @@ func (t *ZModem) handleReceive() {
 				if err != nil {
 					return
 				}
+				//文件全部跳过了
+				t.close()
+				return
 			} else {
 				//不跳过
 				t.lastDownloadFile = &file
@@ -65,14 +66,10 @@ func (t *ZModem) handleReceive() {
 			buf := byteutil.NewBlockReadWriterBuf(make([]byte, 0, 0x2fff), int64(t.lastDownloadFile.Size))
 			t.lastDownloadFile.buf = buf
 			go func() {
-				now := time.Now().UnixMilli()
 				err := t.consumer.OnDownload(t.lastDownloadFile, buf)
 				if err != nil {
-					log("接收出错:" + err.Error())
 					t.close()
 					return
-				} else {
-					log(fmt.Sprintf("接收完成,耗时:%d ms", time.Now().UnixMilli()-now))
 				}
 			}()
 			for !isEnd {

@@ -13,7 +13,7 @@ type BlockBuffer struct {
 	closed     bool
 	lock       *sync.Mutex
 	expectSize int64
-	readSize   int64
+	readedSize int64
 }
 
 func NewBlockReadWriter(expectSize int64) *BlockBuffer {
@@ -56,55 +56,44 @@ func (t *BlockBuffer) Write(data []byte) (nr int, err error) {
 func (t *BlockBuffer) Read(b []byte) (int, error) {
 	for true {
 		t.lock.Lock()
-		if t.closed {
-			var n = 0
-			var err = io.EOF
-			if t.buf.Len() != 0 {
-				//虽然已经关闭，但是可能还有未读取完的buf，需要读取出来
-				n, err = t.buf.Read(b)
-				atomic.AddInt64(&t.readSize, int64(n))
-			}
-			if t.buf.Len() == 0 && t.expectSize >= 0 && t.readSize < t.expectSize {
-				//如果设置了预期大小，而读取完毕时并没有读取到这么字节，将返回ErrUnexpectedEOF
-				err = io.ErrUnexpectedEOF
-			}
-			t.lock.Unlock()
-			return n, err
+		n, err := t.buf.Read(b)
+		t.lock.Unlock()
+		if n > 0 {
+			//增加已读取字节数量
+			atomic.AddInt64(&t.readedSize, int64(n))
 		}
-		i, err := t.buf.Read(b)
-		if err == nil {
-			atomic.AddInt64(&t.readSize, int64(i))
-			if t.buf.Len() == 0 {
-				running := true
-				//读取完buf，清空channel,防止堵塞写入
-				for running {
-					select {
-					case <-t.ch:
-						break
-					default:
-						running = false
-						break
-					}
-				}
-			} else {
+		if err == io.EOF {
+			//buf被读取完了，清空channel，防止write陷入堵塞
+			running := true
+			for running {
 				select {
 				case <-t.ch:
 					break
+				default:
+					running = false
+					break
 				}
 			}
-
-			t.lock.Unlock()
-			return i, err
-		} else if err != io.EOF {
-			t.lock.Unlock()
-			return 0, err
-		}
-		t.lock.Unlock()
-
-		signal := <-t.ch
-		if signal == 0 {
-			//通过关闭信号判断关闭，不能直接在close方法直接关闭，否则如果有线程在read将直接panic
-			close(t.ch)
+			if t.closed {
+				//如果当前buffer也被关闭说明真的读取完毕
+				if t.expectSize >= 0 {
+					//如果设置了预期buffer大小，而实际并未读取到这么多字节那么返回ErrUnexpectedEOF
+					if t.readedSize != t.expectSize {
+						return n, io.ErrUnexpectedEOF
+					}
+				}
+				return n, io.EOF
+			} else {
+				//如果当前buffer未被关闭，说明还没读取完，需要卡在这里等待写入后再读取
+				<-t.ch
+				continue
+			}
+		} else if err != nil {
+			//发生异常
+			return n, err
+		} else {
+			//读取到了数据
+			return n, nil
 		}
 	}
 	return 0, nil

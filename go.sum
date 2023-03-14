@@ -1,8 +1,4 @@
 github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3 h1:aQKxg3+2p+IFXXg97McgDGT5zcMrQoi0EICZs8Pgchs=
 github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3/go.mod h1:9/etS5gpQq9BJsJMWg1wpLbfuSnkm8dPF6FdW2JXVhA=
-github.com/wonderivan/logger v1.0.0 h1:Z6Nz+3SNcizolx3ARH11axdD4DXjFpb2J+ziGUVlv/U=
-github.com/wonderivan/logger v1.0.0/go.mod h1:NObMfQ3WOLKfYEZuGeZQfuQfSPE5+QNgRddVMzsAT/k=
-github.com/xiwh/hexhub-agent-plugin v1.0.40 h1:ukPYyLRfzSdxC0Y/nvy/G6ibJ9xCRC4Z6JPLvNqTSpU=
-github.com/xiwh/hexhub-agent-plugin v1.0.40/go.mod h1:tDyH223zEdh3yGbbK8qXuTpZh439mRlU0MglrEkNplc=
 golang.org/x/exp v0.0.0-20230310171629-522b1b587ee0 h1:LGJsf5LRplCck6jUCH3dBL2dmycNruWNF5xugkSlfXw=
 golang.org/x/exp v0.0.0-20230310171629-522b1b587ee0/go.mod h1:CxIveKay+FTh1D0yPZemJVgC/95VzuuOLq5Qi4xnoYc=

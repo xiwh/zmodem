@@ -1,8 +1,8 @@
 package zmodem
 
 import (
-	"encoding/hex"
-	"fmt"
+	"encoding/binary"
+	"github.com/xiwh/zmodem/myioutil"
 	"io"
 )
 
@@ -16,18 +16,16 @@ func (t *ZModem) handleSend() {
 		dataFrame, err := t.readFrame()
 		if err != nil {
 			//解析错误属于正常现象，因为可能一个大数据包被分成两段发过来了，需要等待第二段到位才能够正常解析
-			log(fmt.Sprintf("err:%s,data:%s", err.Error(), hex.Dump(t.unreadBuf)))
 			return
 		}
-		log("解析到接收帧")
-		log(dataFrame.ToString() + "\n")
 		switch dataFrame.frameType {
 		case ZRINIT:
-			println("ZRINIT")
 			if t.lastUploadFile != nil {
 				//传输完成
-				err = t.sendFrame(newHexFrame(ZFIN, DEFAULT_HEADER_DATA))
-				println("ffff")
+				if t.sendFileEOF {
+					err = t.sendFrame(newHexFrame(ZFIN, DEFAULT_HEADER_DATA))
+					t.sendFileEOF = false
+				}
 				break
 			}
 			zmodemFile := t.consumer.OnUpload()
@@ -51,42 +49,44 @@ func (t *ZModem) handleSend() {
 				t.close()
 				return
 			}
+
 			//发送文件内容
 			err = t.sendFrame(newBinFrame(ZDATA, DEFAULT_HEADER_DATA))
 			if err != nil {
 				t.close()
 				return
 			}
+
+			size := t.lastUploadFile.Size
+			writeCount := 0
+
 			//8k一个包发送
-			buf := make([]byte, 1024)
-			for true {
-				n, err := io.ReadFull(t.lastUploadFile.buf, buf)
-				if err != nil {
-					if err == io.EOF || err == io.ErrUnexpectedEOF {
+			_, err = myioutil.CopyFixedSize(myioutil.WriteFunc(func(p []byte) (n int, err error) {
+				n = len(p)
+				isEnd := writeCount+8192 >= size
+				writeCount += n
+				if isEnd {
+					if err == nil || err == io.EOF {
 						//正常读取完毕
-						err = t.sendSubPacket(newSubPacket(ZCRCE, buf[:n]), ZBIN, false)
+						err = t.sendSubPacket(newSubPacket(ZCRCE, p), ZBIN, false)
 						if err != nil {
-							t.close()
 							return
 						}
-						err = t.sendFrame(newBinFrame(ZEOF, []byte{0x7d, 0x21, 0, 0}))
-						if err != nil {
-							t.close()
-							return
-						}
-						break
-					} else {
-						//读取出错
-						t.close()
-						return
+						sizeBytes := make([]byte, 4)
+						binary.LittleEndian.PutUint32(sizeBytes, uint32(size))
+						err = t.sendFrame(newBinFrame(ZEOF, sizeBytes))
+						t.sendFileEOF = true
 					}
 				} else {
-					err = t.sendSubPacket(newSubPacket(ZCRCG, buf[:n]), ZBIN, false)
-					if err != nil {
-						t.close()
-						return
-					}
+					err = t.sendSubPacket(newSubPacket(ZCRCG, p), ZBIN, false)
 				}
+				return
+			}), t.lastUploadFile.buf, 8192)
+
+			if err != nil && err != io.EOF {
+				//非正常关闭
+				t.close()
+				return
 			}
 		case ZSKIP:
 			//跳过
@@ -96,15 +96,13 @@ func (t *ZModem) handleSend() {
 			}
 			t.consumer.OnUploadSkip(t.lastUploadFile)
 			err = t.sendFrame(newHexFrame(ZFIN, DEFAULT_HEADER_DATA))
+			t.close()
 			if t.lastUploadFile == nil {
-				t.close()
 				return
 			}
-			t.release()
 		case ZFIN:
 			//完成
 			_, _ = t.consumer.Writer.Write([]byte{'O', 'O'})
-			t.status = StatusIdle
 			t.release()
 			return
 		default:
