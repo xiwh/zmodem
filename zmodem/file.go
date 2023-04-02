@@ -35,7 +35,7 @@ func (t *ZModemFile) marshal() []byte {
 
 	str := strings.Join([]string{
 		strconv.Itoa(t.Size),
-		strconv.Itoa(t.ModTime),
+		strconv.FormatInt(int64(t.ModTime), 8),
 		strconv.Itoa(t.FileMode),
 		strconv.Itoa(t.No),
 		strconv.Itoa(t.RemFiles),
@@ -107,10 +107,12 @@ func parseZModemFile(data []byte) (f ZModemFile, err error) {
 		return f, err
 	}
 
-	f.ModTime, err = strconv.Atoi(strArr[1])
+	var temp int64
+	temp, err = strconv.ParseInt(strArr[1], 8, 64)
 	if err != nil {
 		return f, err
 	}
+	f.ModTime = int(temp)
 
 	f.FileMode, err = strconv.Atoi(strArr[2])
 	if err != nil {
