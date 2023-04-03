@@ -1,6 +1,6 @@
 **Zmodem protocol implementation, refer to: http://wiki.synchro.net/ref:zmodem , compatible with lszrz**
 
-## install
+## Install
     go get github.com/xiwh/zmodem
 ## Example
 ```golang
