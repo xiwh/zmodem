@@ -1,8 +1,6 @@
 package zmodem
 
-import (
-	"github.com/xiwh/zmodem/byteutil"
-)
+import "github.com/xiwh/zmodem/byteutil"
 
 func (t *ZModem) handleReceive() {
 	if !t.running.CompareAndSwap(false, true) {
@@ -16,8 +14,8 @@ func (t *ZModem) handleReceive() {
 			//解析错误属于正常现象，因为可能一个大数据包被分成两段发过来了，需要等待第二段到位才能够正常解析
 			return
 		}
-		//log("解析到接收帧")
-		//log(dataFrame.ToString() + "\n")
+		//println("解析到接收帧")
+		//println(dataFrame.ToString() + "\n")
 		switch dataFrame.frameType {
 		case ZRQINIT:
 			err = t.sendFrame(newHexFrame(ZRINIT, DEFAULT_HEADER_DATA))
@@ -72,6 +70,7 @@ func (t *ZModem) handleReceive() {
 					return
 				}
 			}()
+			isErrorEnd := false
 			for !isEnd {
 				//子包读取错误直接抛异常
 				packet, err := t.readSubPacket(dataFrame.encoding)
@@ -83,13 +82,17 @@ func (t *ZModem) handleReceive() {
 				}
 				_, err = buf.Write(packet.data)
 				if err != nil {
-					_ = buf.Close()
-					t.sendClose()
-					continue
+					if !isErrorEnd {
+						t.sendClose()
+					}
+					isErrorEnd = true
 				}
 				isEnd = packet.isEnd
 			}
-			if isEnd {
+			if isErrorEnd {
+				_ = buf.Close()
+				_, _ = t.consumer.Writer.Write([]byte("\n"))
+			} else if isEnd {
 				_ = buf.Close()
 			}
 		case ZEOF:

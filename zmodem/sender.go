@@ -96,10 +96,8 @@ func (t *ZModem) handleSend() {
 			}
 			t.consumer.OnUploadSkip(t.lastUploadFile)
 			err = t.sendFrame(newHexFrame(ZFIN, DEFAULT_HEADER_DATA))
-			t.close()
-			if t.lastUploadFile == nil {
-				return
-			}
+			_ = t.lastUploadFile.buf.Close()
+			t.lastDownloadFile = nil
 		case ZFIN:
 			//完成
 			_, _ = t.consumer.Writer.Write([]byte{'O', 'O'})

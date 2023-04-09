@@ -2,9 +2,11 @@ package byteutil
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 type BlockBuffer struct {
@@ -42,7 +44,7 @@ func NewBlockReadWriterBuf(buf []byte, expectSize int64) *BlockBuffer {
 
 func (t *BlockBuffer) Write(data []byte) (nr int, err error) {
 	if t.closed {
-		return 0, io.EOF
+		return 0, io.ErrClosedPipe
 	}
 	defer func() {
 		t.ch <- 1
@@ -104,6 +106,21 @@ func (t *BlockBuffer) Close() error {
 		return nil
 	}
 	t.closed = true
-	t.ch <- 0
-	return nil
+	select {
+	case t.ch <- 0:
+		return nil
+	case <-time.After(time.Second):
+		//关闭超时,清空channel等待关闭
+		running := true
+		for running {
+			select {
+			case <-t.ch:
+				break
+			default:
+				running = false
+				break
+			}
+		}
+		return errors.New("close timeout")
+	}
 }
