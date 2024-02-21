@@ -1,7 +1,6 @@
 package zmodem
 
 import (
-	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -42,7 +41,7 @@ func (t frame) marshal() ([]byte, error) {
 		data := make([]byte, 0, 64)
 		data = append(data, '*', byte(ZDLE), byte(ZBIN), byte(t.frameType))
 		data = append(data, t.headerData...)
-		data = append(data, byte(t.headerChecksum>>8), byte(t.headerChecksum&0xff))
+		data = append(data, escape([]byte{byte(t.headerChecksum >> 8), byte(t.headerChecksum & 0xff)})...)
 		return data, nil
 	}
 
@@ -65,11 +64,6 @@ func (t frame) ToString() string {
 			t.headerChecksum,
 		)
 	}
-}
-
-func readBufByte(buf *bytes.Buffer) (b byte) {
-	b, _ = buf.ReadByte()
-	return b
 }
 
 func newBinFrame(frameType FrameType, info []byte) (frameData frame) {
@@ -159,10 +153,31 @@ func unmarshalFrame(data []byte) (dataFrame frame, n int, err error) {
 			} else {
 				n = 10
 				dataFrame.headerData = data[4:8]
-				headerDataChecksum := (uint16(data[8]) << 8) | uint16(data[9])
+
+				//crc也可能需要反转义(shit)
+				var headerDataChecksum uint16 = 0
+				crcIdx := 8
+				if data[crcIdx] == byte(ZDLE) {
+					headerDataChecksum = uint16(data[crcIdx+1]^0x40) << 8
+					n += 1
+					crcIdx += 2
+				} else {
+					headerDataChecksum = uint16(data[crcIdx]) << 8
+					crcIdx += 1
+				}
+				if data[crcIdx] == byte(ZDLE) {
+					headerDataChecksum |= uint16(data[crcIdx+1] ^ 0x40)
+					n += 1
+				} else {
+					headerDataChecksum |= uint16(data[crcIdx])
+				}
+
 				headerChecksum := getCrc16(data[3:8])
 				//效验crc
 				if headerDataChecksum != headerChecksum {
+					//hexStr := hex.Dump(data)
+					//println(hexStr)
+
 					return dataFrame, n, errors.New("crc valid failed")
 				}
 				if dataLen >= 11 {
@@ -176,10 +191,10 @@ func unmarshalFrame(data []byte) (dataFrame frame, n int, err error) {
 			return dataFrame, n, errors.New("packet format error6")
 			//32位crc二进制帧
 		} else {
-			return dataFrame, n, errors.New("packet format error6")
+			return dataFrame, n, errors.New("packet format error7")
 		}
 	} else {
-		return dataFrame, n, errors.New("packet format error7")
+		return dataFrame, n, errors.New("packet format error8")
 	}
 	if firstCr {
 		n += 1

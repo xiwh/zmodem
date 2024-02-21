@@ -10,8 +10,9 @@ var SES_ABORT_SEQ = []byte{24, 24, 24, 24, 24, 24, 24, 24, 8, 8, 8, 8, 8, 8, 8, 
 var DEFAULT_HEADER_DATA = []byte{0, 0, 0, 0}
 
 const (
-	ZPAD ZModemChar = '*'
-	ZDLE ZModemChar = 0x18
+	ZPAD  ZModemChar = '*'
+	ZDLE  ZModemChar = 0x18
+	ZDLEE ZModemChar = 0x58
 
 	ZBIN   FrameEncoding = 'A'
 	ZHEX   FrameEncoding = 'B'

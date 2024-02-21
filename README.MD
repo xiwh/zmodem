@@ -30,7 +30,7 @@ func main() {
 			println(fmt.Sprintf("send file:%s skip", file.Filename))
 		},
 		OnUpload: func() *zmodem.ZModemFile {
-			uploadFile, _ := zmodem.NewZModemLocalFile("~/.ssh/id_rsa.pub")
+			uploadFile, _ := zmodem.NewZModemLocalFile("$filePath")
 			return uploadFile
 		},
 		OnCheckDownload: func(file *zmodem.ZModemFile) {
@@ -63,7 +63,7 @@ func main() {
 	} else {
 		cmdWriter.Write([]byte("cd ~/.ssh\n"))
 		cmdWriter.Write([]byte("ls\n"))
-		cmdWriter.Write([]byte("sz ~/.ssh/id_rsa.pub\n"))
+		cmdWriter.Write([]byte("sz $filePath\n"))
 		//cmdWriter.Write([]byte("rz\n"))
 	}
 	_ = cmd.Wait()

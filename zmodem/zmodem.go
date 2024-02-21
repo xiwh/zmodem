@@ -135,6 +135,9 @@ func (t *ZModem) readSubPacket(frameEncoding FrameEncoding) (s subPacket, err er
 }
 
 func (t *ZModem) Write(data []byte) (int, error) {
+	//println(fmt.Sprintf("收到数据,长度:%d", len(data)))
+	//println(hex.Dump(data))
+	//println(hex.EncodeToString(data))
 
 	t.lock.Lock()
 

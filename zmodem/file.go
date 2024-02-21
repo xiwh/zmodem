@@ -113,7 +113,6 @@ func parseZModemFile(data []byte) (f ZModemFile, err error) {
 		return f, err
 	}
 	f.ModTime = int(temp)
-
 	f.FileMode, err = strconv.Atoi(strArr[2])
 	if err != nil {
 		return f, err

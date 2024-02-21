@@ -44,53 +44,46 @@ package zmodem
 func escape(data []byte) []byte {
 	dataLen := len(data)
 	result := make([]byte, 0, dataLen*2)
-	var _ byte
-	var curr byte
 	//数据转义，只要遇见特殊字节，在前面加一个ZDLE并且当前字节的值等于异或0x40
 	for i := 0; i < dataLen; i++ {
-		curr = data[i]
+		ch := data[i]
 
-		/* Quick check for non control characters */
-		if (curr & 0140) > 0 {
-			_ = curr
-			result = append(result, curr)
+		if ch&0x60 != 0 {
+			result = append(result, ch)
 		} else {
-			switch curr {
+			ctrlEscape := true
+			turboEscape := true
+
+			switch ch {
 			case byte(ZDLE):
-				curr = curr ^ 0100
-				_ = curr
-				result = append(result, byte(ZDLE), curr)
-				break
-			case 021:
-				curr = curr ^ 0100
-				_ = curr
-				result = append(result, byte(ZDLE), curr)
-				break
-			case 023:
-				curr = curr ^ 0100
-				_ = curr
-				result = append(result, byte(ZDLE), curr)
-				break
-			case 0221:
-				curr = curr ^ 0100
-				_ = curr
-				result = append(result, byte(ZDLE), curr)
-				break
-			case 0223:
-				curr = curr ^ 0100
-				_ = curr
-				result = append(result, byte(ZDLE), curr)
-				break
-			default:
-				if false && (curr&0140) == 0 {
-					curr = curr ^ 0100
-					_ = curr
-					result = append(result, byte(ZDLE), curr)
+				result = append(result, byte(ZDLE), byte(ZDLEE))
+			case byte(XOFF), byte(XON), byte(XOFF | 0x40), byte(XON | 0x40):
+				result = append(result, byte(ZDLE), ch^0x40)
+			case 0x10, 0x90:
+				if turboEscape {
+					result = append(result, ch)
 				} else {
-					_ = curr
-					result = append(result, curr)
+					result = append(result, byte(ZDLE), ch^0x40)
 				}
-				//break
+			case 0x0D, 0x8D:
+				if ctrlEscape {
+					result = append(result, byte(ZDLE), ch^0x40)
+				} else if turboEscape {
+					result = append(result, ch)
+				} else {
+					// mode 2
+					if len(result) > 0 && (result[len(result)-1]&0x7F) == '@' {
+						result = append(result, byte(ZDLE), ch^0x40)
+					} else {
+						result = append(result, ch)
+					}
+				}
+			default:
+				if ctrlEscape {
+					result = append(result, byte(ZDLE), ch^0x40)
+				} else {
+					result = append(result, ch)
+				}
 			}
 		}
 	}

@@ -1,6 +1,8 @@
 package zmodem
 
-import "github.com/xiwh/zmodem/byteutil"
+import (
+	"github.com/xiwh/zmodem/byteutil"
+)
 
 func (t *ZModem) handleReceive() {
 	if !t.running.CompareAndSwap(false, true) {
