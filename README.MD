@@ -61,8 +61,6 @@ func main() {
 		println(err.Error())
 		return
 	} else {
-		cmdWriter.Write([]byte("cd ~/.ssh\n"))
-		cmdWriter.Write([]byte("ls\n"))
 		cmdWriter.Write([]byte("sz $filePath\n"))
 		//cmdWriter.Write([]byte("rz\n"))
 	}
